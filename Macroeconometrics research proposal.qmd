@@ -15,13 +15,13 @@ This is an important topic as inequality rises direct government action may beco
 
 For the purpose of this analysis data the United States Federal Reserve will be utilized. This source uses government data and is considered highly reliable. A potential issue is the information available being limited by the frequency with which the government collects data. To counter this, the estimates will use a long history and quarterly data which is the most frequent commonly available data.
 
-The core factors chosen, median income, gdp per capita, and unemployment, were chosen for widely being considered to be strong indicators of economic health. An estimated four lags are used as this is quarterly data so by incorporating four lags seasonal effects are adequately accounted for.
-
-Real GDP Per Capita, Quarterly: <https://fred.stlouisfed.org/series/A939RX0Q048SBEA>
+The core factors chosen, median income, gdp per capita, and unemployment, were chosen for widely being considered to be strong indicators of economic health. An estimated four lags are used as this is quarterly data so by incorporating four lags seasonal effects are adequately accounted for. The time series all exhibit strong autocorrelation functions. However the partial autocorrelation functions are very weak, indicating that these are indeed all autoregressive parameters.
 
 Unemployment Rate, Monthly: <https://fred.stlouisfed.org/series/UNRATE>
 
 Median Usual Weekly Real Earnings: <https://fred.stlouisfed.org/series/LES1252881600Q>
+
+Real GDP Per Capita, Quarterly: <https://fred.stlouisfed.org/series/A939RX0Q048SBEA>
 
 Median income is chosen over average income as, due to income disparity in the united states, there are large distortions in the average compared to the median. As stimulus payments and increased unemployment benefits are likely to more significantly impact lower income individuals it was determined that the median income would prove more suitable
 
@@ -111,20 +111,140 @@ rgdpcap = rgdpcap %>% filter(rgdpcap$Date >= '1979 Q1')
 #urate date neded up as not a date so fix that
 urate$Date = as.yearqtr(urate$Date, format = "%YQ%q")
 
+#load in CPI, as Inflation is a key target of the FED
+
+CPI = fredr(series_id = "CPILFESL")
+
+#select only needed data
+
+CPI = subset(CPI, select = c(date, value))
+
+#Adjust CPI to quarterly
+
+CPI = CPI %>%
+  group_by(date = format(as.yearqtr(date, "%b-%Y"), "%YQ%q")) %>%
+  summarise_all(mean)
+
+#rename column names to be more easily interpreted
+colnames(CPI) = c("Date", "CPI")
+
+
+CPI$Date = as.yearqtr(CPI$Date, format = "%YQ%q")
+
+
+
+#should maybe include M2 money supply as a possible vector
+#issue with M2 money suppl defiintion being changed
+#large upswing in 2020 that is not due to real changes
+#Also truncates data 2 years later
+#large information loss given already small number of observations
+#do not include at present 
+
+#load in government consumption spending
+
+govex = fredr(series_id = "A955RX1Q020SBEA")
+
+#select only needed data
+
+govex = subset(govex, select = c(date, value))
+
+#Re-chain to 2020 dollars
+govex$value = (govex$value*258.811)/229.594
+
+
+#rename column names to be more easily interpreted
+colnames(govex) = c("Date", "GovSpend in Billions")
+
+
+govex$Date = as.yearqtr(govex$Date, format = "%YQ%q")
+
+
+
+
+#load in real M2
+
+M2 = fredr(series_id = "M2REAL")
+
+#select only needed data
+
+M2 = subset(M2, select = c(date, value))
+
+#Re-chain to 2020 dollars
+M2$value = (M2$value*258.811)/100
+
+#adjust to be quarterly
+
+M2 = M2 %>%
+  group_by(date = format(as.yearqtr(date, "%b-%Y"), "%YQ%q")) %>%
+  summarise_all(mean)
+
+#rename column names to be more easily interpreted
+colnames(M2) = c("Date", "M2 Money Supply")
+
+
+M2$Date = as.yearqtr(M2$Date, format = "%YQ%q")
+
+
+
 #visually demonstrate values
 plot(urate$Date , urate$`Unemployment Rate %`, type = "l", 
      main = "US Unemployment Rate Over Time", xlab = "Year/Quarter", 
      ylab = "Unemployment %", col = "blue")
 
-plot(rgdpcap$Date , rgdpcap$`Real GDP Per Capita` , type = "l", 
-     main = "US Real GDP Per Capita (2020 Dollars) ", xlab = "Year/Quarter", 
-     ylab = "Real GDP in $", col = "blue")
-
 plot(mearn$Date , mearn$`Weekly Earnings`, type = "l", 
      main = "US Median Weekly Earnings (2020 Dollars", xlab = "Year/Quarter", 
      ylab = "Weekly Earnings in $", col = "blue")
 
+plot(rgdpcap$Date , rgdpcap$`Real GDP Per Capita` , type = "l", 
+     main = "US Real GDP Per Capita (2020 Dollars) ", xlab = "Year/Quarter", 
+     ylab = "Real GDP in $", col = "blue")
 
+plot(CPI$Date , CPI$CPI, type = "l", 
+     main = "US CPI Over Time", xlab = "Year/Quarter", 
+     ylab = "CPI", col = "blue")
+
+plot(govex$Date , govex$`GovSpend in Billions`, type = "l", 
+     main = "US Governement Consumption Over Time", xlab = "Year/Quarter", 
+     ylab = "Billions of 2020 dollars", col = "blue")
+
+plot(M2$Date , M2$`M2 Money Supply`, type = "l", 
+     main = "US M2 Money Supply Over Time", xlab = "Year/Quarter", 
+     ylab = "Billions of 2020 dollars", col = "blue")
+
+#plot autocorrelation functions
+
+acf(urate[,2])
+acf(mearn[,2])
+acf(rgdpcap[,2])
+acf(CPI[,2])
+acf(govex[,2])
+acf(M2[,2])
+
+
+#plot PACF
+pacf(urate[,2])
+pacf(mearn[,2])
+pacf(rgdpcap[,2])
+pacf(CPI[,2])
+pacf(govex[,2])
+pacf(M2[,2])
+
+#ADF testing
+tseries::adf.test(as.vector(urate$`Unemployment Rate %`), k = 4)
+tseries::adf.test(as.vector(mearn$`Weekly Earnings`), k = 4)
+tseries::adf.test(as.vector(rgdpcap$`Real GDP Per Capita`), k = 4)
+tseries::adf.test(as.vector(CPI$CPI), k = 4)
+tseries::adf.test(as.vector(govex$`GovSpend in Billions`), k = 4)
+tseries::adf.test(as.vector(M2$`M2 Money Supply`), k = 4)
+
+#For all reject unit root stationarity
+
+tseries::adf.test(diff(as.vector(urate$`Unemployment Rate %`), k = 3))
+tseries::adf.test(diff(as.vector(mearn$`Weekly Earnings`), k = 3))
+tseries::adf.test(diff(as.vector(rgdpcap$`Real GDP Per Capita`), k = 3))
+tseries::adf.test(diff(as.vector(CPI$CPI), k = 3))
+tseries::adf.test(diff(as.vector(govex$`GovSpend in Billions`), k = 3))
+tseries::adf.test(diff(as.vector(M2$`M2 Money Supply`), k = 3))
 ```
 
 ## Model and Hypothesis
