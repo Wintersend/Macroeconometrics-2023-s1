@@ -297,9 +297,6 @@ Estimating the effects of increased unemployment benefits is more difficult but 
 
 These are all relevant to the economic situation in the United States going forward. A combination of stagnating wages, low minimum wage, and increasing income inequality threatens to force more forceful government action to avert economic crisis stemming from a lower-class which no longer lives at a subsistence level. While this state has not yet been reached it is a looming threat which must be addressed. The number of government programs to help low income individuals is immense but oftentimes much time and energy is spent ensuring that the "undeserving" are not given these benefits which can lead to those in need being rejected or ending up in worse circumstances due to long delays in receiving assistance. All of the proposed methods due to their weak targeting requirements would provide relief more rapidly and potentially aid in economic growth more than programs targeted at covering expenses related to a specific aspect of life.
 
-```{}
-```
-
 Below is a temporary implementation of the SVAR which will evolve over time as I build the model to be more detailed and robust.
 
 y = cbind(urate\[,2\], mearn\[,2\])
@@ -321,9 +318,6 @@ nu.bar = nrow(Y) + nu.prior
 S.bar = S.prior + t(Y)%\*%Y + t(A.prior)%\*%diag(1/diag(V.prior))%\*%A.prior - t(A.bar)%\*%V.bar.inv%\*%A.bar
 
 S.bar.inv = solve(S.bar)
-
-```{}
-```
 
 Below is an attempt at a possible model extension.
 
@@ -383,6 +377,83 @@ omegaco = c*W
 #write function for evaluating st
 #generate theta vector from candidate generating density
 #use theta vector to generate st
+
+
+#run this later using an artificial s
+
+#Create function for generating p(y|Omega)
+
+#create function for generating tilde values
+#dataset, variance shift, lags
+
+#This is verified to work up until xtilde
+#must manually reset t for some reason
+tildecalc = function(y,s,p){
+  #generate ytilde
+  
+  #get length of y
+  obs = nrow(y)
+  
+  #Initialize matrix with all attributes of y to overwrite
+  ytilde = y
+  
+  #set up for loop to recalculate each row of y
+  #I am doing this because I do not recall if division of matrix by vector works
+  #so better to do a manual method I know works
+  for (i in 1:obs) {
+    
+    ytilde[i,]=y[i,]/s[i]
+    
+  } 
+  #save new ytilde for future, keep old one to calculate xtilde
+  ytilde2 = ytilde[5:176,]
+  
+  #generate xtilde
+  #create new length variable
+  obsn = obs - p
+  
+  #initialize empty matrices
+  
+  xtildet = matrix(nrow = ncol(y),ncol = p+1)
+  
+  #xtilde is an array given that it is each set of xtildet
+  xtilde = array(dim = c(ncol(y),p+1,obsn))
+  
+  xtildet[,1] = 1
+  #create t variable to track current timeperiod
+  t = 1+p
+  
+  #populate xtilde
+  for (i in 1:obsn){
+    xtildet[,1] = 1
+    
+    
+    #update xtildet for new period based on number of lags
+    for (j in 1:p){
+      #Use loop count to select aprropriate rows of y
+      #lcount + p - j ensures rows populate in proper order
+      
+      #this returns out of bounds error because yes
+      #it seems like it doesn't properly reset t before checkingthis
+      #The code works if I manually reset t then run the loop
+      xtildet[,j+1] = t(y[t-j,])
+    }
+    
+    
+    #perform math to make xtildet be correct
+    xtildet = xtildet/s[p+i]
+    #now fill in xtilde with the val
+    
+    xtilde[,,i] = xtildet
+    #increment current time
+    t = t + 1  
+  }
+  xtilde = t(xtilde)
+
+}
+
+
+
 
 #try for loop version
 for (i in 1:S) {
