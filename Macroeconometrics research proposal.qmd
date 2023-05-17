@@ -251,19 +251,35 @@ tseries::adf.test(diff(as.vector(M2$`M2 Money Supply`), k = 3))
 
 # Rework This
 
-The model utilized will be a trivariate SVAR with the following specification
+The model utilized will be a six variable SVAR with the following specification
+
+Y = \[uem~t~ , inc~t~ , gdp~t~ , cpi~t~ , gex~t~ , m2~t~ \]
+
+*α =*
+
+X = \[
+
+β = \[
+
+*Y\`α = X\`*β
+
+uem = Unemployment Percentage
+
+inc = Median Income
+
+gdp = Real GDP Per Capita
+
+cpi = Consumer Price Index
+
+gex = Real Government Consumption Expenditure
+
+m2 = M2 Money Supply
 
 *inc~t~* + α~1,2~gdp~t~ + α~1,3~uem~t~ = β~1,0~ + β~1,1~inc~t-1~ + β~1,2~gdp~t-1~ + β~1,3~uem~t-1~ + ... + β~1,10~inc~t-4~ + β~1,11~gdp~t-4~ + β~1,12~uem~t-4~ + μ~inct~
 
 *α~2,1~inc~t~* + gdp~t~ + α~2,3~uem~t~ = β~2,0~ + β~2,1~inc~t-1~ + β~2,2~gdp~t-1~ + β~2,3~uem~t-1~ + ... + β~2,10~inc~t-4~ + β~2,11~gdp~t-4~ + β~2,12~uem~t-4~ + μ~gdpt~
 
 *α~3,1~inc~t~* + α~3,2~gdp~t~ + uem~t~ = β~3,0~ + β~3,1~inc~t-1~ + β~3,2~gdp~t-1~ + β~3,3~uem~t-1~ + ... + β~3,10~inc~t-4~ + β~3,11~gdp~t-4~ + β~3,12~uem~t-4~ + μ~uemt~
-
-Where inc is median income, gdp is GDP per capita, uem is unemployment
-
-α terms are present to indicate present relationships between the variables
-
-β~1,0~ β~2,0~ β~3,0~ are each intercept terms
 
 all other β terms are a multiplier on the value of prior period values on the present
 
@@ -281,93 +297,7 @@ Estimating the effects of increased unemployment benefits is more difficult but 
 
 These are all relevant to the economic situation in the United States going forward. A combination of stagnating wages, low minimum wage, and increasing income inequality threatens to force more forceful government action to avert economic crisis stemming from a lower-class which no longer lives at a subsistence level. While this state has not yet been reached it is a looming threat which must be addressed. The number of government programs to help low income individuals is immense but oftentimes much time and energy is spent ensuring that the "undeserving" are not given these benefits which can lead to those in need being rejected or ending up in worse circumstances due to long delays in receiving assistance. All of the proposed methods due to their weak targeting requirements would provide relief more rapidly and potentially aid in economic growth more than programs targeted at covering expenses related to a specific aspect of life.
 
-Loading in additional data to incorporate into full model
-
-```{r}
-
-#load in CPI, as Inflation is a key target of the FED
-
-CPI = fredr(series_id = "CPILFESL")
-
-#select only needed data
-
-CPI = subset(CPI, select = c(date, value))
-
-#Adjust CPI to quarterly
-
-CPI = CPI %>%
-  group_by(date = format(as.yearqtr(date, "%b-%Y"), "%YQ%q")) %>%
-  summarise_all(mean)
-
-#rename column names to be more easily interpreted
-colnames(CPI) = c("Date", "CPI")
-
-
-CPI$Date = as.yearqtr(CPI$Date, format = "%YQ%q")
-
-plot(CPI$Date , CPI$CPI, type = "l", 
-     main = "US CPI Over Time", xlab = "Year/Quarter", 
-     ylab = "CPI", col = "blue")
-
-
-#should maybe include M2 money supply as a possible vector
-#issue with M2 money suppl defiintion being changed
-#large upswing in 2020 that is not due to real changes
-#Also truncates data 2 years later
-#large information loss given already small number of observations
-#do not include at present 
-
-#load in government consumption spending
-
-govex = fredr(series_id = "A955RX1Q020SBEA")
-
-#select only needed data
-
-govex = subset(govex, select = c(date, value))
-
-#Re-chain to 2020 dollars
-govex$value = (govex$value*258.811)/229.594
-
-
-#rename column names to be more easily interpreted
-colnames(govex) = c("Date", "GovSpend in Billions")
-
-
-govex$Date = as.yearqtr(govex$Date, format = "%YQ%q")
-
-plot(govex$Date , govex$`GovSpend in Billions`, type = "l", 
-     main = "US Governement Consumption Over Time", xlab = "Year/Quarter", 
-     ylab = "Billions of 2020 dollars", col = "blue")
-
-
-
-#load in real M2
-
-M2 = fredr(series_id = "M2REAL")
-
-#select only needed data
-
-M2 = subset(M2, select = c(date, value))
-
-#Re-chain to 2020 dollars
-M2$value = (M2$value*258.811)/100
-
-#adjust to be quarterly
-
-M2 = M2 %>%
-  group_by(date = format(as.yearqtr(date, "%b-%Y"), "%YQ%q")) %>%
-  summarise_all(mean)
-
-#rename column names to be more easily interpreted
-colnames(M2) = c("Date", "M2 Money Supply")
-
-
-M2$Date = as.yearqtr(M2$Date, format = "%YQ%q")
-
-plot(M2$Date , M2$`M2 Money Supply`, type = "l", 
-     main = "US M2 Money Supply Over Time", xlab = "Year/Quarter", 
-     ylab = "Billions of 2020 dollars", col = "blue")
-
+```{}
 ```
 
 Below is a temporary implementation of the SVAR which will evolve over time as I build the model to be more detailed and robust.
@@ -392,155 +322,7 @@ S.bar = S.prior + t(Y)%\*%Y + t(A.prior)%\*%diag(1/diag(V.prior))%\*%A.prior - t
 
 S.bar.inv = solve(S.bar)
 
-```{r}
-
-#Onlyusing mearn, rgdpcap, and urate in initial setup, will include other
-#information when basic model is functional
-
-#equalize length of data
-#keep only values past the date of the newest data series
-#keep only values before 2023
-mearn = mearn %>% filter(mearn$Date >= '1979 Q1')
-mearn = mearn %>% filter(mearn$Date < '2023 Q1')
-
-rgdpcap = rgdpcap %>% filter(rgdpcap$Date >= '1979 Q1')
-rgdpcap = rgdpcap %>% filter(rgdpcap$Date < '2023 Q1')
-
-#CPI = CPI %>% filter(CPI$Date >= '1979 Q1')
-#CPI = CPI %>% filter(CPI$Date < '2023 Q1')
-
-#govex = govex %>% filter(govex$Date >= '1979 Q1')
-#govex = govex %>% filter(govex$Date < '2023 Q1')
-
-#M2 = M2 %>% filter(M2$Date >= '1979 Q1')
-#M2 = M2 %>% filter(M2$Date < '2023 Q1')
-
-#set up y matrix
-#doing it like this so I can toggle stuff off and on
-y = cbind(urate[,2], mearn[,2])
-y = cbind(y, rgdpcap[,2])
-#y = cbind(y, CPI[,2])
-#y = cbind(y, govex[,2])
-#y = cbind(y, M2[,2])
-
-#RF
-#Y = u + A1Y-1 + A2Y-2 ... + error
-
-#If lags = 4, must start from 5th observation
-#Need to set y as matrix or X becomes wrong object type for future calcs
-y = as.matrix(y)
-
-
-#create VAR model?
-#VAR(4) for 1 year of lags
-
-# setup
-############################################################
-
-#number of variables
-N       = 3
-#number of lags
-p       = 4
-#number of draws
-S       = 50000
-#not the foggiest
-h       = 8
-
-# create Y and X
-############################################################  
-
-Y       = ts(y[5:176,])
-X       = matrix(1,nrow(Y),1)
-for (i in 1:p){
-  X     = cbind(X,y[5:176-i,])
-}
-
-t0          = proc.time() # read processor time
-
-
-
-# MLE
-############################################################
-A.hat       = solve(t(X)%*%X)%*%t(X)%*%Y
-Sigma.hat   = t(Y-X%*%A.hat)%*%(Y-X%*%A.hat)/nrow(Y)
-
-#kappa 1 is 1 if non-stationary
-#smaller than 1 if stationary
-kappa.1     = 1^2
-#k2 = 100 is given for Minnesota Prior
-kappa.2     = 100
-#kappa 3 is 1 just given the fact that it determines A.prior
-#which invovles the identity matrix
-kappa.3     = 1
-A.prior     = matrix(0,nrow(A.hat),ncol(A.hat))
-#bit in brackets is just 2:p+1
-A.prior[2:4,] = kappa.3*diag(N)
-V.prior     = diag(c(kappa.2,kappa.1*((1:p)^(-2))%x%rep(1,N)))
-S.prior     = diag(diag(Sigma.hat))
-nu.prior    = N+1
-
-# normal-inverse Wishard posterior parameters
-############################################################
-
-#This is all just given and can be reused infinitely
-V.bar.inv   = t(X)%*%X + diag(1/diag(V.prior))
-V.bar       = solve(V.bar.inv)
-A.bar       = V.bar%*%(t(X)%*%Y + diag(1/diag(V.prior))%*%A.prior)
-nu.bar      = nrow(Y) + nu.prior
-S.bar       = S.prior + t(Y)%*%Y + t(A.prior)%*%diag(1/diag(V.prior))%*%A.prior - t(A.bar)%*%V.bar.inv%*%A.bar
-S.bar.inv   = solve(S.bar)
-
-#Ok so all of that above should get me all the posterior distribution
-#Now I need to actually do anything whatsoever with sign restrctions
-
-# Estimating models with sign restrictions: example
-# Use Algorithm 2
-############################################################
-rm(list=ls())
-set.seed(123456)
-#column by column
-sign.restrictions = c(-1,-1,1,-1,-1,1)
-#this is fine just regardless of how many there are
-R1            = diag(sign.restrictions)
-#Check how to derive
-A             = t(matrix(c(.5,.5,0,-1.25,.25,0,-1,0,.5),3,3))
-#check how to derive
-Sigma         = matrix(c(1,.5,1,.5,4.25,2.5,1,2.5,3),3,3)
-#these should be a given I *think*
-B0.tilde      = t(solve(chol(Sigma)))
-B1.tilde      = B0.tilde%*%A
-IR.0.tilde    = solve(B0.tilde)
-IR.1.tilde    = solve(B0.tilde)%*%B1.tilde%*%solve(B0.tilde)
-
-#This just repeats until I get one where sign restrictions hold
-#Assuming the above is all set up properly this shoudl require no more input
-#some of this might require a touch of editing
-#E,g, X may be based on some given parameters instead of being arbitrary
-sign.restrictions.do.not.hold = TRUE
-i=1
-while (sign.restrictions.do.not.hold){
-  X           = matrix(rnorm(9),3,3)
-  QR          = qr(X, tol = 1e-10)
-  Q           = qr.Q(QR,complete=TRUE)
-  R           = qr.R(QR,complete=TRUE)
-  Q           = t(Q %*% diag(sign(diag(R))))
-  B0          = Q%*%B0.tilde
-  B1          = Q%*%B1.tilde
-  B0.inv      = solve(B0)
-  check       = prod(R1 %*% rbind(B0.inv,B0.inv%*%B1%*%B0.inv) %*% diag(3)[,1] > 0)
-  if (check==1){sign.restrictions.do.not.hold=FALSE}
-  i=i+1
-}
-i
-Q
-B0
-B1
-IR.0        = B0.inv
-IR.1        = B0.inv%*%B1%*%B0.inv
-IR.0
-IR.1
-R1 %*% rbind(IR.0,IR.1) %*% diag(3)[,1]
-
+```{}
 ```
 
 Below is an attempt at a possible model extension.
@@ -572,6 +354,73 @@ Attempting to incorporate COVID as specified in *How to estimate a vector autore
 #rebind date to verify
 #There must be a better way to select the appropriate dates
 #I just don't know offhand
+
+install.packages('MASS')
+library(MASS)
+
+install.packages('distributionsrd')
+library(distributionsrd)
+
+#set up for Metropolis-Hastings
+S = 1000
+
+#create c and w for covariance
+c = 0.0001
+W = diag(4)
+
+#create empty variables for accepted and itteration count
+accept = 0
+itter = 1
+
+omegaS = rep(0, 4)
+omegaco = c*W
+
+#is s just equal to omegastar
+
+#write separate function for posterior kernal
+#throw into for loop below for pomega
+
+#write function for evaluating st
+#generate theta vector from candidate generating density
+#use theta vector to generate st
+
+#try for loop version
+for (i in 1:S) {
+  #prior density
+  rhostar = dnorm(0,0.5)
+  s = dpareto()
+  
+  
+  #candidate generating density
+  omegastar = mvrnorm(1, omegaS, omegaco)
+  
+  
+  pomega = det(diag(s)) ^ /2 * #p(omega) Ask prof about this, I can't quite read handwriting
+  u = runif(0,1)
+  alphaS = min(pomega,1)
+  
+  
+  if (u < alpahaS){
+    omegaS = omegastar
+    #save kernal of omegaS
+    accept = accept + 1
+  } else {
+      omegaS = omegaS
+      #save kernal of omegaS
+  }
+  itteration = itteration + 1
+}
+  
+#calculate rejection rate
+rrate = 1 - accept/itteration
+
+#do I actually need this or can I hand-calc it above?
+coda::rejectionRate()
+
+
+
+
+
 
 rho = rnorm(mean = 0, sd = 0.5)
 
