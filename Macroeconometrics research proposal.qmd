@@ -448,10 +448,9 @@ tildecalc = function(y,s,p){
     #increment current time
     t = t + 1  
   }
-  xtilde = t(xtilde)
-
+  #is transposing an array even neceasry? It's an array
+  t = 1+p
 }
-
 
 
 
